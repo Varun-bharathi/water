@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Radiation } from 'lucide-react';
+import { Radiation, Download } from 'lucide-react';
 import remarkGfm from 'remark-gfm';
+import html2pdf from 'html2pdf.js';
 
 const App = () => {
   // State for form data
@@ -66,7 +67,7 @@ const App = () => {
 
       const data = await response.json();
       setResult(data);
-      
+
       // Smooth scroll to results
       setTimeout(() => {
         document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
@@ -80,13 +81,38 @@ const App = () => {
     }
   };
 
+  const downloadPDF = () => {
+    const element = document.createElement('div');
+    const originalContent = document.getElementById('pdf-content');
+    element.innerHTML = originalContent.outerHTML;
+
+    // Set some styles on cloned element to ensure correct rendering in PDF
+    element.style.padding = '20px';
+    element.style.backgroundColor = '#0f0a0a';
+    element.style.color = '#e2e8f0';
+
+    const isHazardReport = result?.prediction?.includes("NON-POTABLE");
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = isHazardReport ? `hazard-report-${timestamp}.pdf` : `potable-report-${timestamp}.pdf`;
+
+    const opt = {
+      margin: 0.3,
+      filename: filename,
+      image: { type: 'jpeg', quality: 1.0 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#0f0a0a', windowWidth: 1000 },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save();
+  };
+
   // Determine Theme Class based on prediction
   const isHazard = result?.prediction?.includes("NON-POTABLE");
   const themeClass = result ? (isHazard ? 'theme-hazard' : 'theme-potable') : '';
 
   return (
     <div className="min-h-screen text-slate-200 py-12 px-4 flex flex-col items-center bg-[#0f0a0a] relative overflow-x-hidden">
-      
+
       {/* --- Custom Styles for Theme & Animations --- */}
       <style>{`
         .bg-grid-pattern {
@@ -125,7 +151,7 @@ const App = () => {
       <div className="absolute inset-0 bg-grid-pattern pointer-events-none z-0"></div>
 
       <div className="w-full max-w-3xl z-10">
-        
+
         {/* Header */}
         <header className="text-center mb-10">
           <div className="inline-block p-1 px-3 mb-4 border border-red-900 bg-red-950/50 text-red-500 font-mono text-[10px] uppercase tracking-[0.3em] animate-pulse">
@@ -180,52 +206,62 @@ const App = () => {
         {/* Results Section */}
         {result && (
           <div id="results-section" className={`space-y-8 animate-in fade-in duration-1000 ${themeClass}`}>
-            
-            {/* Verdict Card */}
-            <div className="p-8 border-2 text-center status-border transition-colors duration-500">
-              <p className="text-[10px] font-mono uppercase opacity-60 tracking-widest mb-1">System Verdict</p>
-              <h2 className="text-4xl font-black italic tracking-tight">
-                {isHazard ? "CRITICAL HAZARD DETECTED" : "POTABLE / SYSTEM NOMINAL"}
-              </h2>
-            </div>
 
-            {/* Analysis Box */}
-            <div className="analysis-box border relative overflow-hidden transition-colors duration-500">
-              <div className="absolute top-0 left-0 w-full h-1 scanline scanline-anim"></div>
-              <div className="p-8">
-                <h2 className="text-xl font-black mb-8 flex items-center gap-3 border-b border-white/5 pb-4">
-                  <span className="report-icon">
-                    <Radiation size={24} />
-                  </span>
-                  <span className="uppercase tracking-widest text-slate-100">Toxicity Report</span>
+            <div id="pdf-content" className="space-y-8">
+              {/* Verdict Card */}
+              <div className="p-8 border-2 text-center status-border transition-colors duration-500">
+                <p className="text-[10px] font-mono uppercase opacity-60 tracking-widest mb-1">System Verdict</p>
+                <h2 className="text-4xl font-black italic tracking-tight">
+                  {isHazard ? "CRITICAL HAZARD DETECTED" : "POTABLE / SYSTEM NOMINAL"}
                 </h2>
-                
-                {/* Markdown Content */}
-                <div className="prose prose-invert max-w-none text-sm md:text-base leading-relaxed opacity-90">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]} // <-- ADD THIS PROP
-                    components={{
-                       h3: ({node, ...props}) => <h3 className="font-extrabold text-lg mt-6 uppercase pb-1" {...props} />,
-                       ul: ({node, ...props}) => <ul className="list-square ml-6 text-gray-300 mb-4" {...props} />,
-                       // Table components
-                       table: ({node, ...props}) => <table className="w-full border-collapse my-6 text-sm" {...props} />,
-                       th: ({node, ...props}) => <th className="border border-white/5 p-3 text-left bg-black/20" {...props} />,
-                       td: ({node, ...props}) => <td className="border border-white/5 p-3 text-left" {...props} />,
-                    }}
-                  >
-                    {result.analysis}
-                  </ReactMarkdown>
+              </div>
+
+              {/* Analysis Box */}
+              <div className="analysis-box border relative overflow-hidden transition-colors duration-500">
+                <div className="absolute top-0 left-0 w-full h-1 scanline scanline-anim"></div>
+                <div className="p-8">
+                  <h2 className="text-xl font-black mb-8 flex items-center gap-3 border-b border-white/5 pb-4">
+                    <span className="report-icon">
+                      <Radiation size={24} />
+                    </span>
+                    <span className="uppercase tracking-widest text-slate-100">Toxicity Report</span>
+                  </h2>
+
+                  {/* Markdown Content */}
+                  <div className="prose prose-invert max-w-none text-sm md:text-base leading-relaxed opacity-90">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]} // <-- ADD THIS PROP
+                      components={{
+                        h3: ({ node, ...props }) => <h3 className="font-extrabold text-lg mt-6 uppercase pb-1" {...props} />,
+                        ul: ({ node, ...props }) => <ul className="list-square ml-6 text-gray-300 mb-4" {...props} />,
+                        // Table components
+                        table: ({ node, ...props }) => <table className="w-full border-collapse my-6 text-sm" {...props} />,
+                        th: ({ node, ...props }) => <th className="border border-white/5 p-3 text-left bg-black/20" {...props} />,
+                        td: ({ node, ...props }) => <td className="border border-white/5 p-3 text-left" {...props} />,
+                      }}
+                    >
+                      {result.analysis}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <footer className="text-center pt-8 pb-12">
-              <button 
+            <footer className="text-center pt-8 pb-12 flex flex-col items-center gap-5">
+              <button
+                onClick={downloadPDF}
+                className="flex items-center justify-center gap-3 px-8 py-3 bg-slate-900 border border-slate-700 hover:border-slate-500 hover:bg-slate-800 text-slate-300 font-bold uppercase tracking-[0.1em] transition-all rounded shadow-lg"
+              >
+                <Download size={18} />
+                Download Report as PDF
+              </button>
+
+              <button
                 onClick={() => {
-                   setResult(null);
-                   window.scrollTo({top: 0, behavior: 'smooth'});
-                }} 
-                className="text-[10px] font-mono text-slate-600 hover:text-orange-500 uppercase tracking-widest transition-colors"
+                  setResult(null);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="text-[10px] font-mono text-slate-600 hover:text-orange-500 uppercase tracking-widest transition-colors mt-4"
               >
                 [ Clear Buffer ]
               </button>
